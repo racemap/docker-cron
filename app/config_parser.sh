@@ -29,8 +29,8 @@ i=1
 while :; do
   cmd_var="CMD_$i"
   interval_var="INTERVAL_$i"
-  cmd="${!cmd_var}"
-  interval="${!interval_var}"
+  cmd="${!cmd_var:-}"
+  interval="${!interval_var:-}"
   if [ -z "$cmd" ] && [ -z "$interval" ]; then
     break
   fi

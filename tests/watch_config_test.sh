@@ -20,7 +20,7 @@ CRON
 }
 CFG
 
-  PATH="$workdir/bin:$PATH" CONFIG_FILE="$workdir/config.json" CRONTABS_DIR="$workdir/crontabs" CONFIG_PARSER_PATH="$(pwd)/app/config_parser.sh" setsid bash run.sh >"$workdir/run.log" 2>&1 &
+  PATH="$workdir/bin:$PATH" CONFIG_FILE="$workdir/config.json" CRONTABS_DIR="$workdir/crontabs" CONFIG_PARSER_PATH="$(pwd)/app/config_parser.sh" bash run.sh >"$workdir/run.log" 2>&1 &
   local pid=$!
 
   for _ in {1..50}; do
