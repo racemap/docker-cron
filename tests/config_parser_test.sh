@@ -2,8 +2,9 @@
 set -euo pipefail
 
 test_writes_crontab_from_config() {
-  local tmpdir
+  local tmpdir crondir
   tmpdir=$(mktemp -d)
+  crondir="$tmpdir/crontabs"
   cat >"$tmpdir/config.json" <<'CFG'
 {
   "jobs": [
@@ -13,11 +14,11 @@ test_writes_crontab_from_config() {
 }
 CFG
 
-  CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh
+  CONFIG_FILE="$tmpdir/config.json" CRONTABS_DIR="$crondir" bash app/config_parser.sh
 
   local expected=$'* * * * * /bin/echo hi\n0 1 * * * /bin/date'
   local actual
-  actual=$(cat /etc/crontabs/root)
+  actual=$(cat "$crondir/root")
   if [[ "$actual" != "$expected" ]]; then
     echo "crontab content mismatch" >&2
     echo "expected:" >&2
@@ -28,12 +29,12 @@ CFG
   fi
 
   rm -rf "$tmpdir"
-  rm -rf /etc/crontabs
 }
 
 test_errors_when_missing_pair() {
-  local tmpdir
+  local tmpdir crondir
   tmpdir=$(mktemp -d)
+  crondir="$tmpdir/crontabs"
   cat >"$tmpdir/config.json" <<'CFG'
 {
   "jobs": [
@@ -41,7 +42,7 @@ test_errors_when_missing_pair() {
   ]
 }
 CFG
-  if CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh 2>"$tmpdir/err.log"; then
+  if CONFIG_FILE="$tmpdir/config.json" CRONTABS_DIR="$crondir" bash app/config_parser.sh 2>"$tmpdir/err.log"; then
     echo "script succeeded when it should have failed" >&2
     exit 1
   fi
@@ -52,12 +53,12 @@ CFG
   fi
 
   rm -rf "$tmpdir"
-  rm -rf /etc/crontabs
 }
 
 test_env_overrides_config() {
-  local tmpdir
+  local tmpdir crondir
   tmpdir=$(mktemp -d)
+  crondir="$tmpdir/crontabs"
   cat >"$tmpdir/config.json" <<'CFG'
 {
   "jobs": [
@@ -66,11 +67,11 @@ test_env_overrides_config() {
 }
 CFG
 
-  CMD_1="/bin/date" INTERVAL_1="*/5 * * * *" CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh
+  CMD_1="/bin/date" INTERVAL_1="*/5 * * * *" CONFIG_FILE="$tmpdir/config.json" CRONTABS_DIR="$crondir" bash app/config_parser.sh
 
   local expected=$'*/5 * * * * /bin/date'
   local actual
-  actual=$(cat /etc/crontabs/root)
+  actual=$(cat "$crondir/root")
   if [[ "$actual" != "$expected" ]]; then
     echo "crontab content mismatch" >&2
     echo "expected:" >&2
@@ -81,7 +82,6 @@ CFG
   fi
 
   rm -rf "$tmpdir"
-  rm -rf /etc/crontabs
 }
 
 test_writes_crontab_from_config
