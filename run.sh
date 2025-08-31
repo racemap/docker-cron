@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+# Enable strict error handling: exit on errors, undefined variables, and
+# failures within pipelines.
 
 generate_cron() {
   bash /app/config_parser.sh
@@ -23,11 +25,11 @@ watch_config() {
           generate_cron
           reload_crond
         fi
-      done
+      done || true
   else
     local prev
     if [ -f "$file" ]; then
-      prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}')"
+      prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
     else
       prev="missing"
       echo "Warning: configuration file '$file' missing, skipping cron generation" >&2
@@ -41,7 +43,7 @@ watch_config() {
         continue
       fi
       local curr
-      curr="$(md5sum "$file" 2>/dev/null | awk '{print $1}')"
+      curr="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
       if [ "$curr" != "$prev" ]; then
         prev="$curr"
         generate_cron
@@ -52,7 +54,7 @@ watch_config() {
 }
 
 # Generate cron entries from environment/config
-if [ -n "$CONFIG_FILE" ]; then
+if [ -n "${CONFIG_FILE:-}" ]; then
   if [ -f "$CONFIG_FILE" ]; then
     generate_cron
   else
@@ -65,8 +67,8 @@ fi
 crond -f -l 2 &
 CROND_PID=$!
 
-if [ -n "$CONFIG_FILE" ]; then
+if [ -n "${CONFIG_FILE:-}" ]; then
   watch_config "$CONFIG_FILE" &
 fi
 
-wait $CROND_PID
+wait "$CROND_PID"
