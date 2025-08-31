@@ -55,7 +55,37 @@ CFG
   rm -rf /etc/crontabs
 }
 
+test_env_overrides_config() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  cat >"$tmpdir/config.json" <<'CFG'
+{
+  "jobs": [
+    {"cmd": "/bin/echo hi", "interval": "0 1 * * *"}
+  ]
+}
+CFG
+
+  CMD_1="/bin/date" INTERVAL_1="*/5 * * * *" CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh
+
+  local expected=$'*/5 * * * * /bin/date'
+  local actual
+  actual=$(cat /etc/crontabs/root)
+  if [[ "$actual" != "$expected" ]]; then
+    echo "crontab content mismatch" >&2
+    echo "expected:" >&2
+    printf '%s\n' "$expected" >&2
+    echo "actual:" >&2
+    printf '%s\n' "$actual" >&2
+    exit 1
+  fi
+
+  rm -rf "$tmpdir"
+  rm -rf /etc/crontabs
+}
+
 test_writes_crontab_from_config
 test_errors_when_missing_pair
+test_env_overrides_config
 
 echo "All config_parser tests passed"
