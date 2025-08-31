@@ -10,6 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: shellcheck run.sh app/config_parser.sh tests/*.sh
       - name: Run Docker build and test
         run: bash test.sh
       - name: Run watch config test
