@@ -4,7 +4,8 @@ RUN apk add --no-cache bash dcron \
     && mkdir -p /app
 
 COPY run.sh /app/run.sh
-RUN chmod +x /app/run.sh
+COPY app/config_parser.sh /app/config_parser.sh
+RUN chmod +x /app/run.sh /app/config_parser.sh
 
 WORKDIR /app
 
