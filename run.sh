@@ -3,8 +3,12 @@ set -euo pipefail
 # Enable strict error handling: exit on errors, undefined variables, and
 # failures within pipelines.
 
+CONFIG_PARSER_PATH=${CONFIG_PARSER_PATH:-/app/config_parser.sh}
+CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
+export CRONTABS_DIR
+
 generate_cron() {
-  bash /app/config_parser.sh
+  bash "$CONFIG_PARSER_PATH"
 }
 
 reload_crond() {
@@ -37,7 +41,7 @@ watch_config() {
 # Generate cron entries from environment/config
 generate_cron
 
-crond -f -l 2 &
+crond -f -l 2 -c "$CRONTABS_DIR" &
 CROND_PID=$!
 
 if [ -n "${CONFIG_FILE:-}" ] && [ -f "${CONFIG_FILE:-}" ]; then
