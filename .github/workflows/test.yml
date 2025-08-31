@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run Docker build and test
         run: bash test.sh
+      - name: Run watch config test
+        run: sudo bash tests/watch_config_test.sh
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
