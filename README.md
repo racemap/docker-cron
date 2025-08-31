@@ -56,5 +56,31 @@ In this example the job runs `echo from env` every ten minutes, ignoring the `cm
 
 ## Dependencies and resource usage
 
-The image is based on Alpine Linux and installs only the `bash` shell and the `dcron` scheduler. Typical
-runtime memory consumption is below 10&nbsp;MB and CPU usage is negligible outside of scheduled jobs.
+The image is based on Alpine Linux and installs the `bash` shell, the `dcron` scheduler, `jq`, and the
+Docker CLI with the Compose plugin. Typical runtime memory consumption is below 10&nbsp;MB and CPU usage
+is negligible outside of scheduled jobs.
+
+## Running Docker and Docker Compose tasks
+
+The container can execute Docker commands on the host by mounting the Docker socket and any required
+Compose files.
+
+1. **Build the image**
+
+   ```sh
+   docker build -t docker-cron .
+   ```
+
+2. **Run with access to the host Docker daemon**
+
+   ```sh
+   docker run \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     -v $(pwd)/docker-compose.yml:/docker-compose.yml \
+     -e CMD_1="docker compose -f /docker-compose.yml up -d" \
+     -e INTERVAL_1="0 * * * *" \
+     docker-cron
+   ```
+
+This example brings up services defined in `docker-compose.yml` every hour. Cron jobs may invoke any
+`docker` or `docker compose` commands needed for your workflows.
