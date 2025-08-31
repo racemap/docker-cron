@@ -4,15 +4,16 @@ set -euo pipefail
 test_writes_crontab_from_config() {
   local tmpdir
   tmpdir=$(mktemp -d)
-  cat >"$tmpdir/config.env" <<'CFG'
-# Sample config with spacing and comments
- CMD_1 = /bin/echo hi # greet
-INTERVAL_1= * * * * *
-CMD_2=/bin/date
-INTERVAL_2=0 1 * * *
+  cat >"$tmpdir/config.json" <<'CFG'
+{
+  "jobs": [
+    {"cmd": "/bin/echo hi", "interval": "* * * * *"},
+    {"cmd": "/bin/date", "interval": "0 1 * * *"}
+  ]
+}
 CFG
 
-  CONFIG_FILE="$tmpdir/config.env" bash app/config_parser.sh
+  CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh
 
   local expected=$'* * * * * /bin/echo hi\n0 1 * * * /bin/date'
   local actual
@@ -33,10 +34,14 @@ CFG
 test_errors_when_missing_pair() {
   local tmpdir
   tmpdir=$(mktemp -d)
-  cat >"$tmpdir/config.env" <<'CFG'
-CMD_1=/bin/echo hi
+  cat >"$tmpdir/config.json" <<'CFG'
+{
+  "jobs": [
+    {"cmd": "/bin/echo hi"}
+  ]
+}
 CFG
-  if CONFIG_FILE="$tmpdir/config.env" bash app/config_parser.sh 2>"$tmpdir/err.log"; then
+  if CONFIG_FILE="$tmpdir/config.json" bash app/config_parser.sh 2>"$tmpdir/err.log"; then
     echo "script succeeded when it should have failed" >&2
     exit 1
   fi

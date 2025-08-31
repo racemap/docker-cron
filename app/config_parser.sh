@@ -6,16 +6,20 @@ if [ -n "$CONFIG_FILE" ]; then
     echo "Config file $CONFIG_FILE not found" >&2
     exit 1
   fi
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%%#*}"
-    line="$(echo "$line" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')"
-    [ -z "$line" ] && continue
-    key="$(echo "${line%%=*}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')"
-    value="$(echo "${line#*=}" | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')"
-    if [ -z "${!key+x}" ]; then
-      export "$key=$value"
+  i=1
+  while read -r job; do
+    cmd_var="CMD_$i"
+    interval_var="INTERVAL_$i"
+    cmd="$(echo "$job" | jq -r '.cmd // empty')"
+    interval="$(echo "$job" | jq -r '.interval // empty')"
+    if [ -z "${!cmd_var+x}" ] && [ -n "$cmd" ]; then
+      export "$cmd_var=$cmd"
     fi
-  done < "$CONFIG_FILE"
+    if [ -z "${!interval_var+x}" ] && [ -n "$interval" ]; then
+      export "$interval_var=$interval"
+    fi
+    i=$((i + 1))
+  done < <(jq -c '.jobs // [] | .[]' "$CONFIG_FILE")
 fi
 
 lines=()
