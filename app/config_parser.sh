@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
+
 if [ -n "$CONFIG_FILE" ]; then
   if [ ! -f "$CONFIG_FILE" ]; then
     echo "Config file $CONFIG_FILE not found" >&2
@@ -40,5 +42,5 @@ while :; do
   i=$((i + 1))
 done
 
-mkdir -p /etc/crontabs
-printf "%s\n" "${lines[@]}" > /etc/crontabs/root
+mkdir -p "$CRONTABS_DIR"
+printf "%s\n" "${lines[@]}" > "$CRONTABS_DIR/root"
