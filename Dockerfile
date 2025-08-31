@@ -1,6 +1,6 @@
 FROM alpine:3.19
 
-RUN apk add --no-cache bash dcron jq \
+RUN apk add --no-cache bash dcron jq docker-cli docker-cli-compose \
     && mkdir -p /app
 
 COPY run.sh /app/run.sh
