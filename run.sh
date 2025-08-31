@@ -67,7 +67,7 @@ fi
 crond -f -l 2 &
 CROND_PID=$!
 
-if [ -n "${CONFIG_FILE:-}" ]; then
+if [ -n "${CONFIG_FILE:-}" ] && [ -f "${CONFIG_FILE:-}" ]; then
   watch_config "$CONFIG_FILE" &
 fi
 
