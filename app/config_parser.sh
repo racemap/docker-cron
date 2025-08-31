@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 if [ -n "$CONFIG_FILE" ]; then
   if [ ! -f "$CONFIG_FILE" ]; then
