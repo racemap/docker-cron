@@ -52,12 +52,20 @@ watch_config() {
 }
 
 # Generate cron entries from environment/config
-generate_cron
+if [ -n "$CONFIG_FILE" ]; then
+  if [ -f "$CONFIG_FILE" ]; then
+    generate_cron
+  else
+    echo "Warning: configuration file '$CONFIG_FILE' missing, skipping cron generation" >&2
+  fi
+else
+  generate_cron
+fi
 
 crond -f -l 2 &
 CROND_PID=$!
 
-if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+if [ -n "$CONFIG_FILE" ]; then
   watch_config "$CONFIG_FILE" &
 fi
 
