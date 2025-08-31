@@ -12,14 +12,34 @@ reload_crond() {
 watch_config() {
   local file="$1"
   if command -v inotifywait >/dev/null 2>&1; then
-    inotifywait -m -e close_write,move,delete "$file" | while read -r _; do
-      generate_cron
-      reload_crond
-    done
+    local dir="$(dirname "$file")"
+    local base="$(basename "$file")"
+    inotifywait -m -e close_write,move,create,delete "$dir" --format '%e %f' |
+      while read -r events fname; do
+        [ "$fname" = "$base" ] || continue
+        if echo "$events" | grep -qE 'DELETE|MOVED_FROM'; then
+          echo "Warning: configuration file '$file' missing, skipping cron generation" >&2
+        elif [ -f "$file" ]; then
+          generate_cron
+          reload_crond
+        fi
+      done
   else
     local prev
-    prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}')"
+    if [ -f "$file" ]; then
+      prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}')"
+    else
+      prev="missing"
+      echo "Warning: configuration file '$file' missing, skipping cron generation" >&2
+    fi
     while sleep 5; do
+      if [ ! -f "$file" ]; then
+        if [ "$prev" != "missing" ]; then
+          prev="missing"
+          echo "Warning: configuration file '$file' missing, skipping cron generation" >&2
+        fi
+        continue
+      fi
       local curr
       curr="$(md5sum "$file" 2>/dev/null | awk '{print $1}')"
       if [ "$curr" != "$prev" ]; then
