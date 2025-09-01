@@ -6,6 +6,8 @@ set -euo pipefail
 CONFIG_PARSER_PATH=${CONFIG_PARSER_PATH:-/app/config_parser.sh}
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 export CRONTABS_DIR
+CONFIG_FILE=${CONFIG_FILE:-'/app/config.json'}
+export CONFIG_FILE
 
 # Logging function
 log() {
@@ -17,7 +19,7 @@ log "Docker Cron Container Starting"
 log "========================================="
 log "Config parser path: $CONFIG_PARSER_PATH"
 log "Crontabs directory: $CRONTABS_DIR"
-log "Config file: ${CONFIG_FILE:-'not specified'}"
+log "Config file: ${CONFIG_FILE}"
 
 # Log detected environment variables
 log "Scanning for CMD_* and INTERVAL_* environment variables..."
@@ -45,14 +47,28 @@ generate_cron() {
 
 reload_crond() {
   if [ -n "${CROND_PID:-}" ] && kill -0 "$CROND_PID" 2>/dev/null; then
-    log "Reloading crond daemon (PID: $CROND_PID)"
-    if kill -HUP "$CROND_PID" 2>/dev/null; then
-      log "Crond daemon reloaded successfully"
+    log "Reloading supercronic daemon (PID: $CROND_PID)"
+    # Supercronic automatically reloads when the crontab file changes
+    # But we restart it to be sure
+    log "Stopping supercronic daemon for restart..."
+    kill "$CROND_PID" 2>/dev/null || true
+    wait "$CROND_PID" 2>/dev/null || true
+    
+    log "Starting new supercronic daemon..."
+    supercronic "$CRONTABS_DIR/root" &
+    CROND_PID=$!
+    log "New supercronic daemon started with PID: $CROND_PID"
+    
+    # Verify new supercronic is running
+    sleep 1
+    if kill -0 "$CROND_PID" 2>/dev/null; then
+      log "Supercronic daemon restart: HEALTHY"
     else
-      log "WARNING: Failed to reload crond daemon"
+      log "ERROR: Supercronic daemon restart: FAILED"
+      exit 1
     fi
   else
-    log "WARNING: Crond daemon not running or PID not available"
+    log "WARNING: Supercronic daemon not running or PID not available"
   fi
 }
 
@@ -94,22 +110,22 @@ watch_config() {
 log "Initial cron configuration generation..."
 generate_cron
 
-log "Starting crond daemon..."
-log "Command: crond -f -l 2 -c $CRONTABS_DIR"
-crond -f -l 2 -c "$CRONTABS_DIR" &
+log "Starting supercronic daemon..."
+log "Command: supercronic $CRONTABS_DIR/root"
+supercronic "$CRONTABS_DIR/root" &
 CROND_PID=$!
 log "Crond daemon started with PID: $CROND_PID"
 
-# Verify crond is running
+# Verify supercronic is running
 sleep 1
 if kill -0 "$CROND_PID" 2>/dev/null; then
-  log "Crond daemon health check: HEALTHY"
+  log "Supercronic daemon health check: HEALTHY"
 else
-  log "ERROR: Crond daemon health check: FAILED"
+  log "ERROR: Supercronic daemon health check: FAILED"
   exit 1
 fi
 
-if [ -n "${CONFIG_FILE:-}" ] && [ -f "${CONFIG_FILE:-}" ]; then
+if [ -n "${CONFIG_FILE}" ] && [ -f "${CONFIG_FILE}" ]; then
   log "Starting config file watcher for: ${CONFIG_FILE}"
   watch_config "$CONFIG_FILE" &
   WATCHER_PID=$!
@@ -130,7 +146,7 @@ cleanup() {
   fi
   
   if [ -n "${CROND_PID:-}" ] && kill -0 "$CROND_PID" 2>/dev/null; then
-    log "Stopping crond daemon (PID: $CROND_PID)"
+    log "Stopping supercronic daemon (PID: $CROND_PID)"
     kill "$CROND_PID" 2>/dev/null || true
     wait "$CROND_PID" 2>/dev/null || true
   fi
@@ -144,6 +160,6 @@ trap cleanup SIGTERM SIGINT
 
 log "Signal handlers set up for graceful shutdown"
 log "Docker cron container is now running"
-log "Waiting for crond daemon to exit..."
+log "Waiting for supercronic daemon to exit..."
 wait "$CROND_PID"
-log "Crond daemon has exited"
+log "Supercronic daemon has exited"

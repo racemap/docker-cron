@@ -75,7 +75,12 @@ while :; do
     exit 1
   fi
   log "Job $i: '$interval $cmd'"
-  lines+=("$interval $cmd")
+  # Option 1: Direct redirection with proper shell handling
+  # cmd_with_logging="( $cmd ) >> /proc/1/fd/1 2>> /proc/1/fd/2"
+  # Option 2: Use wrapper script (currently active)
+  # Pass the command as a single argument to the wrapper script
+  cmd_with_logging="/app/cron_logger.sh '$cmd'"
+  lines+=("$interval $cmd_with_logging")
   i=$((i + 1))
 done
 
@@ -87,6 +92,10 @@ mkdir -p "$CRONTABS_DIR"
 
 log "Writing crontab to $CRONTABS_DIR/root"
 printf "%s\n" "${lines[@]}" > "$CRONTABS_DIR/root"
+
+# Set proper permissions for crontab
+chmod 600 "$CRONTABS_DIR/root"
+log "Set crontab permissions to 600"
 
 log "Crontab contents:"
 cat "$CRONTABS_DIR/root" | while IFS= read -r line; do
