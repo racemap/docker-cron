@@ -1,0 +1,8 @@
+{
+    "jobs": [
+        {
+            "cmd": "echo from file",
+            "interval": "*/5 * * * *"
+        }
+    ]
+}

@@ -7,29 +7,81 @@ CONFIG_PARSER_PATH=${CONFIG_PARSER_PATH:-/app/config_parser.sh}
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 export CRONTABS_DIR
 
+# Logging function
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [docker-cron] $*" >&2
+}
+
+log "========================================="
+log "Docker Cron Container Starting"
+log "========================================="
+log "Config parser path: $CONFIG_PARSER_PATH"
+log "Crontabs directory: $CRONTABS_DIR"
+log "Config file: ${CONFIG_FILE:-'not specified'}"
+
+# Log detected environment variables
+log "Scanning for CMD_* and INTERVAL_* environment variables..."
+env_count=0
+while IFS= read -r var; do
+  log "Found: $var"
+  env_count=$((env_count + 1))
+done < <(env | grep -E '^(CMD_|INTERVAL_)' | sort)
+
+if [ $env_count -eq 0 ]; then
+  log "No CMD_* or INTERVAL_* environment variables found"
+else
+  log "Found $env_count environment variables"
+fi
+
 generate_cron() {
-  bash "$CONFIG_PARSER_PATH"
+  log "Generating cron configuration..."
+  if bash "$CONFIG_PARSER_PATH"; then
+    log "Cron configuration generated successfully"
+  else
+    log "ERROR: Failed to generate cron configuration"
+    exit 1
+  fi
 }
 
 reload_crond() {
-  kill -HUP "$CROND_PID" 2>/dev/null || true
+  if [ -n "${CROND_PID:-}" ] && kill -0 "$CROND_PID" 2>/dev/null; then
+    log "Reloading crond daemon (PID: $CROND_PID)"
+    if kill -HUP "$CROND_PID" 2>/dev/null; then
+      log "Crond daemon reloaded successfully"
+    else
+      log "WARNING: Failed to reload crond daemon"
+    fi
+  else
+    log "WARNING: Crond daemon not running or PID not available"
+  fi
 }
 
 watch_config() {
   local file="$1"
+  log "Starting config file watcher for: $file"
+  
   if command -v inotifywait >/dev/null 2>&1; then
+    log "Using inotifywait for file monitoring"
     inotifywait -m -e close_write,move,delete "$file" |
-      while read -r _; do
+      while read -r path events filename; do
+        log "Config file changed (events: $events), regenerating cron..."
         generate_cron
         reload_crond
-      done || true
+      done || {
+        log "WARNING: inotifywait monitoring stopped"
+        true
+      }
   else
+    log "inotifywait not available, using MD5 polling (5 second intervals)"
     local prev
     prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
+    log "Initial file hash: $prev"
+    
     while sleep 5; do
       local curr
       curr="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
       if [ "$curr" != "$prev" ]; then
+        log "Config file changed (hash: $prev -> $curr), regenerating cron..."
         prev="$curr"
         generate_cron
         reload_crond
@@ -39,13 +91,59 @@ watch_config() {
 }
 
 # Generate cron entries from environment/config
+log "Initial cron configuration generation..."
 generate_cron
 
+log "Starting crond daemon..."
+log "Command: crond -f -l 2 -c $CRONTABS_DIR"
 crond -f -l 2 -c "$CRONTABS_DIR" &
 CROND_PID=$!
+log "Crond daemon started with PID: $CROND_PID"
 
-if [ -n "${CONFIG_FILE:-}" ] && [ -f "${CONFIG_FILE:-}" ]; then
-  watch_config "$CONFIG_FILE" &
+# Verify crond is running
+sleep 1
+if kill -0 "$CROND_PID" 2>/dev/null; then
+  log "Crond daemon health check: HEALTHY"
+else
+  log "ERROR: Crond daemon health check: FAILED"
+  exit 1
 fi
 
+if [ -n "${CONFIG_FILE:-}" ] && [ -f "${CONFIG_FILE:-}" ]; then
+  log "Starting config file watcher for: ${CONFIG_FILE}"
+  watch_config "$CONFIG_FILE" &
+  WATCHER_PID=$!
+  log "Config file watcher started with PID: $WATCHER_PID"
+else
+  log "No config file to watch"
+fi
+
+# Signal handler for graceful shutdown
+cleanup() {
+  log "========================================="
+  log "Received shutdown signal, cleaning up..."
+  log "========================================="
+  
+  if [ -n "${WATCHER_PID:-}" ] && kill -0 "$WATCHER_PID" 2>/dev/null; then
+    log "Stopping config file watcher (PID: $WATCHER_PID)"
+    kill "$WATCHER_PID" 2>/dev/null || true
+  fi
+  
+  if [ -n "${CROND_PID:-}" ] && kill -0 "$CROND_PID" 2>/dev/null; then
+    log "Stopping crond daemon (PID: $CROND_PID)"
+    kill "$CROND_PID" 2>/dev/null || true
+    wait "$CROND_PID" 2>/dev/null || true
+  fi
+  
+  log "Docker cron container shutdown complete"
+  exit 0
+}
+
+# Set up signal handlers
+trap cleanup SIGTERM SIGINT
+
+log "Signal handlers set up for graceful shutdown"
+log "Docker cron container is now running"
+log "Waiting for crond daemon to exit..."
 wait "$CROND_PID"
+log "Crond daemon has exited"
