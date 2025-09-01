@@ -3,9 +3,13 @@ set -euo pipefail
 
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 
-# Logging function
+# Logging function - logfmt format to match supercronic
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [config_parser] $*" >&2
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=info msg=\"$*\" component=config-parser" >&2
+}
+
+log_error() {
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=error msg=\"$*\" component=config-parser" >&2
 }
 
 log "Starting config parser"
@@ -14,13 +18,13 @@ log "Using crontabs directory: $CRONTABS_DIR"
 if [ -n "${CONFIG_FILE:-}" ]; then
   log "Config file specified: ${CONFIG_FILE}"
   if [ ! -f "${CONFIG_FILE:-}" ]; then
-    log "ERROR: Config file ${CONFIG_FILE:-} not found"
-    log "Please ensure the file exists and is mounted correctly in the container"
+    log_error "Config file ${CONFIG_FILE:-} not found"
+    log_error "Please ensure the file exists and is mounted correctly in the container"
     echo "Config file ${CONFIG_FILE:-} not found" >&2
     exit 1
   fi
   if [ ! -r "${CONFIG_FILE:-}" ]; then
-    log "ERROR: Config file ${CONFIG_FILE:-} is not readable"
+    log_error "Config file ${CONFIG_FILE:-} is not readable"
     echo "Config file ${CONFIG_FILE:-} is not readable" >&2
     exit 1
   fi
@@ -51,7 +55,7 @@ if [ -n "${CONFIG_FILE:-}" ]; then
     
     i=$((i + 1))
     job_count=$((job_count + 1))
-  done < <(jq -c '.jobs // [] | .[]' "${CONFIG_FILE:-}" 2>/dev/null || { log "ERROR: Failed to parse JSON config file"; exit 1; })
+  done < <(jq -c '.jobs // [] | .[]' "${CONFIG_FILE:-}" 2>/dev/null || { log_error "Failed to parse JSON config file"; exit 1; })
   log "Processed $job_count jobs from config file"
 else
   log "No config file specified, using only environment variables"
@@ -70,7 +74,7 @@ while :; do
     break
   fi
   if [ -z "$cmd" ] || [ -z "$interval" ]; then
-    log "ERROR: Missing $cmd_var or $interval_var"
+    log_error "Missing $cmd_var or $interval_var"
     echo "Missing $cmd_var or $interval_var" >&2
     exit 1
   fi
@@ -108,11 +112,11 @@ if [ ${#lines[@]} -gt 0 ]; then
   if [ -r "$CRONTABS_DIR/root" ] && [ -s "$CRONTABS_DIR/root" ]; then
     log "Crontab file validation: PASSED (file exists and is not empty)"
   else
-    log "ERROR: Crontab file validation: FAILED (file missing or empty)"
+    log_error "Crontab file validation: FAILED (file missing or empty)"
     exit 1
   fi
 else
-  log "WARNING: No cron jobs configured"
+  log_warn "No cron jobs configured"
 fi
 
 log "Config parser completed successfully"

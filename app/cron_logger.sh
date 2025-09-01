@@ -4,36 +4,41 @@
 # Ensure PATH is set for cron environment
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Log function that outputs to stdout (will appear in docker logs)
+# Logfmt format function to match supercronic
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [cron-job] $*"
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=info msg=\"$*\" component=cron-job"
 }
 
-# Always log that the script was called for debugging
-log "Cron logger script called with args: $*"
+log_error() {
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=error msg=\"$*\" component=cron-job"
+}
 
 # Check if command was provided
 if [ $# -eq 0 ]; then
-  log "ERROR: No command provided to cron logger"
+  log_error "No command provided"
   exit 1
 fi
 
-# Log the command being executed
-log "Executing: $*"
+# Log execution start if verbose mode is enabled
+if [ "${CRON_VERBOSE:-false}" = "true" ]; then
+  log "Executing: $*"
+fi
 
 # Execute the command and capture both stdout and stderr
 # Use bash -c to properly execute complex commands
 if output=$(bash -c "$*" 2>&1); then
-  # Command succeeded
-  log "Command completed successfully"
+  # Command succeeded - output the result and optionally log success
   if [ -n "$output" ]; then
     echo "$output"
   fi
+  if [ "${CRON_VERBOSE:-false}" = "true" ]; then
+    log "Command completed successfully"
+  fi
   exit 0
 else
-  # Command failed
+  # Command failed - always log failures
   exit_code=$?
-  log "Command failed with exit code: $exit_code"
+  log_error "Command failed with exit code: $exit_code"
   if [ -n "$output" ]; then
     echo "$output"
   fi

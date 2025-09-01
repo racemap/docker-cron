@@ -9,9 +9,17 @@ export CRONTABS_DIR
 CONFIG_FILE=${CONFIG_FILE:-'/app/config.json'}
 export CONFIG_FILE
 
-# Logging function
+# Logging function - logfmt format to match supercronic
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [docker-cron] $*" >&2
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=info msg=\"$*\" component=docker-cron" >&2
+}
+
+log_error() {
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=error msg=\"$*\" component=docker-cron" >&2
+}
+
+log_warn() {
+  echo "time=\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" level=warn msg=\"$*\" component=docker-cron" >&2
 }
 
 log "========================================="
@@ -20,6 +28,12 @@ log "========================================="
 log "Config parser path: $CONFIG_PARSER_PATH"
 log "Crontabs directory: $CRONTABS_DIR"
 log "Config file: ${CONFIG_FILE}"
+
+# Set verbose logging if requested
+if [ "${CRON_VERBOSE:-false}" = "true" ]; then
+  log "Verbose logging enabled"
+  export CRON_VERBOSE=true
+fi
 
 # Log detected environment variables
 log "Scanning for CMD_* and INTERVAL_* environment variables..."
@@ -40,7 +54,7 @@ generate_cron() {
   if bash "$CONFIG_PARSER_PATH"; then
     log "Cron configuration generated successfully"
   else
-    log "ERROR: Failed to generate cron configuration"
+    log_error "Failed to generate cron configuration"
     exit 1
   fi
 }
@@ -55,6 +69,7 @@ reload_crond() {
     wait "$CROND_PID" 2>/dev/null || true
     
     log "Starting new supercronic daemon..."
+    # Use same environment variables for consistency
     supercronic "$CRONTABS_DIR/root" &
     CROND_PID=$!
     log "New supercronic daemon started with PID: $CROND_PID"
@@ -64,11 +79,11 @@ reload_crond() {
     if kill -0 "$CROND_PID" 2>/dev/null; then
       log "Supercronic daemon restart: HEALTHY"
     else
-      log "ERROR: Supercronic daemon restart: FAILED"
+      log_error "Supercronic daemon restart: FAILED"
       exit 1
     fi
   else
-    log "WARNING: Supercronic daemon not running or PID not available"
+    log_warn "Supercronic daemon not running or PID not available"
   fi
 }
 
@@ -84,7 +99,7 @@ watch_config() {
         generate_cron
         reload_crond
       done || {
-        log "WARNING: inotifywait monitoring stopped"
+        log_warn "inotifywait monitoring stopped"
         true
       }
   else
@@ -111,8 +126,16 @@ log "Initial cron configuration generation..."
 generate_cron
 
 log "Starting supercronic daemon..."
-log "Command: supercronic $CRONTABS_DIR/root"
-supercronic "$CRONTABS_DIR/root" &
+# Configure supercronic logging based on CRON_VERBOSE setting
+if [ "${CRON_VERBOSE:-false}" = "true" ]; then
+  log "Verbose logging enabled"
+  log "Command: supercronic /etc/crontabs/root"
+  supercronic "$CRONTABS_DIR/root" &
+else
+  log "Command: supercronic /etc/crontabs/root"
+  # Use standard supercronic logging (logfmt format)
+  supercronic "$CRONTABS_DIR/root" &
+fi
 CROND_PID=$!
 log "Crond daemon started with PID: $CROND_PID"
 
@@ -121,7 +144,7 @@ sleep 1
 if kill -0 "$CROND_PID" 2>/dev/null; then
   log "Supercronic daemon health check: HEALTHY"
 else
-  log "ERROR: Supercronic daemon health check: FAILED"
+  log_error "Supercronic daemon health check: FAILED"
   exit 1
 fi
 
