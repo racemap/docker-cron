@@ -3,9 +3,9 @@ set -euo pipefail
 
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 
-if [ -n "$CONFIG_FILE" ]; then
-  if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Config file $CONFIG_FILE not found" >&2
+if [ -n "${CONFIG_FILE:-}" ]; then
+  if [ ! -f "${CONFIG_FILE:-}" ]; then
+    echo "Config file ${CONFIG_FILE:-} not found" >&2
     exit 1
   fi
   i=1
@@ -21,7 +21,7 @@ if [ -n "$CONFIG_FILE" ]; then
       export "$interval_var=$interval"
     fi
     i=$((i + 1))
-  done < <(jq -c '.jobs // [] | .[]' "$CONFIG_FILE")
+  done < <(jq -c '.jobs // [] | .[]' "${CONFIG_FILE:-}")
 fi
 
 lines=()
