@@ -94,7 +94,7 @@ watch_config() {
   if command -v inotifywait >/dev/null 2>&1; then
     log "Using inotifywait for file monitoring"
     inotifywait -m -e close_write,move,delete "$file" |
-      while read -r path events filename; do
+      while read -r _ events _; do
         log "Config file changed (events: $events), regenerating cron..."
         generate_cron
         reload_crond

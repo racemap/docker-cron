@@ -102,9 +102,9 @@ chmod 600 "$CRONTABS_DIR/root"
 log "Set crontab permissions to 600"
 
 log "Crontab contents:"
-cat "$CRONTABS_DIR/root" | while IFS= read -r line; do
+while IFS= read -r line; do
   log "  $line"
-done
+done < "$CRONTABS_DIR/root"
 
 # Validate crontab syntax (basic check)
 if [ ${#lines[@]} -gt 0 ]; then
