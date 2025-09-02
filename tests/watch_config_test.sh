@@ -28,7 +28,7 @@ CFG
     sleep 0.1
   done
 
-  local expected1=$'* * * * * /bin/echo hi'
+  local expected1=$'* * * * * /app/cron_logger.sh /bin/echo hi'
   local actual
   actual=$(cat "$workdir/crontabs/root")
   if [[ "$actual" != "$expected1" ]]; then
@@ -50,10 +50,10 @@ CFG
 
   for _ in {1..50}; do
     actual=$(cat "$workdir/crontabs/root")
-    [[ "$actual" == $'*/5 * * * * /bin/date' ]] && break
+    [[ "$actual" == $'*/5 * * * * /app/cron_logger.sh /bin/date' ]] && break
     sleep 0.2
   done
-  if [[ "$actual" != $'*/5 * * * * /bin/date' ]]; then
+  if [[ "$actual" != $'*/5 * * * * /app/cron_logger.sh /bin/date' ]]; then
     echo "updated crontab mismatch" >&2
     kill "$pid" 2>/dev/null || true
     kill -- -"$pid" 2>/dev/null || true
