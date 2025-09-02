@@ -28,6 +28,15 @@ jobs:
           echo "Running tests for version ${{ steps.version.outputs.version }}"
           # Add your test commands here
 
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      
+      - name: Run ShellCheck
+        run: shellcheck run.sh app/config_parser.sh tests/*.sh
+        
+      - name: Run test
+        run: bash test.sh
+
   build:
     needs: test
     runs-on: ubuntu-latest
