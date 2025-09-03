@@ -83,7 +83,7 @@ while :; do
   # cmd_with_logging="( $cmd ) >> /proc/1/fd/1 2>> /proc/1/fd/2"
   # Option 2: Use wrapper script (currently active)
   # Pass the command as a single argument to the wrapper script
-  cmd_with_logging="/app/cron_logger.sh '$cmd'"
+  cmd_with_logging="/app/cron_logger.sh $cmd"
   lines+=("$interval $cmd_with_logging")
   i=$((i + 1))
 done
