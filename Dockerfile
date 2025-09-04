@@ -23,9 +23,6 @@ RUN curl -fsSLO "$SUPERCRONIC_URL" \
 COPY . /app
 WORKDIR /app
 
-# Make scripts executable
-RUN chmod +x version.sh
-
 # Set version in environment
 ENV APP_VERSION=${VERSION}
 
