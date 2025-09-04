@@ -3,10 +3,11 @@ set -euo pipefail
 # Enable strict error handling: exit on errors, undefined variables, and
 # failures within pipelines.
 
-CONFIG_PARSER_PATH=${CONFIG_PARSER_PATH:-/app/config_parser.sh}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_PARSER_PATH=${CONFIG_PARSER_PATH:-"$SCRIPT_DIR/app/config_parser.sh"}
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 export CRONTABS_DIR
-CONFIG_FILE=${CONFIG_FILE:-'/app/config.json'}
+CONFIG_FILE=${CONFIG_FILE:-"$SCRIPT_DIR/config.json"}
 export CONFIG_FILE
 
 # Logging function - logfmt format to match supercronic

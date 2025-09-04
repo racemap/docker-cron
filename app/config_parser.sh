@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRONTABS_DIR=${CRONTABS_DIR:-/etc/crontabs}
 
 # Logging function - logfmt format to match supercronic
@@ -83,7 +84,7 @@ while :; do
   # cmd_with_logging="( $cmd ) >> /proc/1/fd/1 2>> /proc/1/fd/2"
   # Option 2: Use wrapper script (currently active)
   # Pass the command as a single argument to the wrapper script
-  cmd_with_logging="/app/cron_logger.sh $cmd"
+  cmd_with_logging="${SCRIPT_DIR}/cron_logger.sh $cmd"
   lines+=("$interval $cmd_with_logging")
   i=$((i + 1))
 done
