@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PWD="$(pwd)"
+
 test_watch_config_updates_crontab() {
   local workdir
   workdir=$(mktemp -d)
@@ -64,7 +66,7 @@ CFG
   # Give it a bit more time to ensure the monitoring loop has started
   sleep 1
 
-  local expected1=$'* * * * * /app/cron_logger.sh /bin/echo hi'
+  local expected1=$'* * * * * '"$PWD"$'/app/cron_logger.sh /bin/echo hi'
   local actual
   actual=$(cat "$workdir/crontabs/root")
   if [[ "$actual" != "$expected1" ]]; then
@@ -88,7 +90,7 @@ CFG
   local config_updated=false
   for _ in {1..10}; do
     actual=$(cat "$workdir/crontabs/root")
-    if [[ "$actual" == $'*/5 * * * * /app/cron_logger.sh /bin/date' ]]; then
+    if [[ "$actual" == $'*/5 * * * * '"$PWD"$'/app/cron_logger.sh /bin/date' ]]; then
       config_updated=true
       break
     fi
@@ -97,7 +99,7 @@ CFG
   
   if [[ "$config_updated" != "true" ]]; then
     echo "updated crontab mismatch" >&2
-    echo "Expected: */5 * * * * /app/cron_logger.sh /bin/date" >&2
+    echo "Expected: */5 * * * * $PWD/app/cron_logger.sh /bin/date" >&2
     echo "Actual: $actual" >&2
     kill "$pid" 2>/dev/null || true
     kill -- -"$pid" 2>/dev/null || true

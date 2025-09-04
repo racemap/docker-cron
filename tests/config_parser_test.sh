@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PWD="$(pwd)"
+
 test_writes_crontab_from_config() {
   local tmpdir crondir
   tmpdir=$(mktemp -d)
@@ -16,7 +18,7 @@ CFG
 
   CONFIG_FILE="$tmpdir/config.json" CRONTABS_DIR="$crondir" bash app/config_parser.sh
 
-  local expected=$'* * * * * /app/cron_logger.sh /bin/echo hi\n0 1 * * * /app/cron_logger.sh /bin/date'
+  local expected=$'* * * * * '"$PWD"$'/app/cron_logger.sh /bin/echo hi\n0 1 * * * '"$PWD"$'/app/cron_logger.sh /bin/date'
   local actual
   actual=$(cat "$crondir/root")
   if [[ "$actual" != "$expected" ]]; then
@@ -69,7 +71,7 @@ CFG
 
   CMD_1="/bin/date" INTERVAL_1="*/5 * * * *" CONFIG_FILE="$tmpdir/config.json" CRONTABS_DIR="$crondir" bash app/config_parser.sh
 
-  local expected=$'*/5 * * * * /app/cron_logger.sh /bin/date'
+  local expected=$'*/5 * * * * '"$PWD"$'/app/cron_logger.sh /bin/date'
   local actual
   actual=$(cat "$crondir/root")
   if [[ "$actual" != "$expected" ]]; then
