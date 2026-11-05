@@ -46,7 +46,7 @@ test_watch_config_updates_crontab() {
   mkdir -p "$workdir/bin" "$workdir/config"
   cat >"$workdir/bin/supercronic" <<'CRON'
 #!/usr/bin/env bash
-trap '' HUP
+trap 'echo reloaded >>"$(dirname "$0")/../reloads"' USR2
 while true; do sleep 1; done
 CRON
   chmod +x "$workdir/bin/supercronic"
@@ -76,6 +76,12 @@ CRON
   write_config "$workdir/config/.config.json.tmp" "/bin/true" "*/7 * * * *"
   mv "$workdir/config/.config.json.tmp" "$config"
   wait_for_crontab "/bin/true" "*/7 * * * *"
+
+  # supercronic reloads in place; restarting it from the watcher ended the container.
+  sleep 1
+  kill -0 "$pid" 2>/dev/null || fail "run.sh exited after a reload"
+  # The stub's bash merges signals that arrive within one sleep, so count at least one.
+  [[ -s "$workdir/reloads" ]] || fail "supercronic was not told to reload"
 }
 
 test_watch_config_updates_crontab

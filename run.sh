@@ -61,28 +61,11 @@ generate_cron() {
 }
 
 reload_crond() {
+  # The watcher runs in a subshell: a supercronic it started would not be the one the main
+  # process waits on, and the container would exit. SIGUSR2 reloads the crontab in place.
   if [ -n "${CROND_PID:-}" ] && kill -0 "$CROND_PID" 2>/dev/null; then
-    log "Reloading supercronic daemon (PID: $CROND_PID)"
-    # Supercronic automatically reloads when the crontab file changes
-    # But we restart it to be sure
-    log "Stopping supercronic daemon for restart..."
-    kill "$CROND_PID" 2>/dev/null || true
-    wait "$CROND_PID" 2>/dev/null || true
-    
-    log "Starting new supercronic daemon..."
-    # Use same environment variables for consistency
-    supercronic "$CRONTABS_DIR/root" &
-    CROND_PID=$!
-    log "New supercronic daemon started with PID: $CROND_PID"
-    
-    # Verify new supercronic is running
-    sleep 1
-    if kill -0 "$CROND_PID" 2>/dev/null; then
-      log "Supercronic daemon restart: HEALTHY"
-    else
-      log_error "Supercronic daemon restart: FAILED"
-      exit 1
-    fi
+    log "Reloading supercronic crontab (PID: $CROND_PID)"
+    kill -USR2 "$CROND_PID"
   else
     log_warn "Supercronic daemon not running or PID not available"
   fi
