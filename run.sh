@@ -88,15 +88,30 @@ reload_crond() {
   fi
 }
 
+config_hash() {
+  md5sum "$1" 2>/dev/null | awk '{print $1}' || true
+}
+
 watch_config() {
   local file="$1"
+  local dir name prev curr
+  dir="$(dirname "$file")"
+  name="$(basename "$file")"
+  prev="$(config_hash "$file")"
   log "Starting config file watcher for: $file"
-  
+  log "Initial file hash: $prev"
+
   if command -v inotifywait >/dev/null 2>&1; then
     log "Using inotifywait for file monitoring"
-    inotifywait -m -e close_write,move,delete "$file" |
-      while read -r _ events _; do
-        log "Config file changed (events: $events), regenerating cron..."
+    # The directory sees a file replaced by git or an atomic save; the file itself sees in-place
+    # writes through a single-file bind mount. The hash drops duplicate and no-op events.
+    inotifywait -m -e close_write,moved_to --format '%w%f' "$dir" "$file" |
+      while IFS= read -r path; do
+        [ "$path" = "$file" ] || [ "$path" = "$dir/$name" ] || continue
+        curr="$(config_hash "$file")"
+        [ "$curr" != "$prev" ] || continue
+        log "Config file changed (hash: $prev -> $curr), regenerating cron..."
+        prev="$curr"
         generate_cron
         reload_crond
       done || {
@@ -105,13 +120,8 @@ watch_config() {
       }
   else
     log "inotifywait not available, using MD5 polling (5 second intervals)"
-    local prev
-    prev="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
-    log "Initial file hash: $prev"
-    
     while sleep 5; do
-      local curr
-      curr="$(md5sum "$file" 2>/dev/null | awk '{print $1}' || true)"
+      curr="$(config_hash "$file")"
       if [ "$curr" != "$prev" ]; then
         log "Config file changed (hash: $prev -> $curr), regenerating cron..."
         prev="$curr"
