@@ -54,6 +54,14 @@ In this example the job runs `echo from env` every ten minutes, ignoring the `cm
     ```
 3. Any variables passed with `-e` on the command line take precedence over values in `config.json`.
 
+The container reloads the jobs when the file changes. A single-file mount only sees writes in place. Git,
+and editors that save atomically, replace the file, and the container keeps the old one. Mount the
+directory to pick those up:
+
+```sh
+docker run -v $(pwd)/cron:/config:ro -e CONFIG_FILE=/config/config.json image
+```
+
 ## Dependencies and resource usage
 
 The image is based on Alpine Linux and installs the `bash` shell, the `dcron` scheduler, `jq`, and the
